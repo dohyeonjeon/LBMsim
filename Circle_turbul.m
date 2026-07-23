@@ -21,7 +21,7 @@ Verlength=120;
 Horlength=360; 
 lendel=1; 
 
-Time=10000; 
+Time=30000; 
 timedel = 1; 
 savestep = 20;
 
@@ -161,6 +161,7 @@ for i = 1:Time
     frhofld(:,1)=1;
     frhofld(:,end)=1;
     u1(:,1,1)=0.05;
+    u1(:,1,2)=0;
     u1(:,end,:)=0;
 
     %------Equilibrium and force term calculation

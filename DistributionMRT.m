@@ -27,13 +27,12 @@ persistent M luM svec
             0, 1,-1, 1,-1, 0, 0, 0, 0;    % m7 = pxx (normal stress)
             0, 0, 0, 0, 0, 1,-1, 1,-1]);   % m8 = pxy (shear stress)
         luM=M\eye(9);
-        svec=gpuArray(diag([0, 1.0, 1.0, 0, 1.0, 0, 1.0, 1/tau, 1/tau]));
+        svec=gpuArray(diag([0, 1.1, 1.2, 0, 1.1, 0, 1.1, 1/tau, 1/tau]));
     end
 
 svec([71,81])=1/tau;
 morig=M*(reshape(disorig,[],9).');
-mstar=morig-svec*(morig-M*res ...
-    hape(diseq,[],9).');%+(eye(9)-svec/2)*(M*reshape(fdt,[],9).');
+mstar=morig-svec*(morig-M*reshape(diseq,[],9).');%+(eye(9)-svec/2)*(M*reshape(fdt,[],9).');
 resr=reshape((luM*mstar).',size(disorig));
 
 end
