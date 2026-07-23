@@ -7,7 +7,7 @@ persistent xdir ydir fnew
     if isempty(xdir)
         xdir=gpuArray(reshape([0,1,0,-1,0,1,-1,-1,1],1,1,[]));
         ydir=gpuArray(reshape([0,0,1,0,-1,1,1,-1,-1],1,1,[]));
-        opp=[1,4,5,2,3,8,9,6,7];
+        fnew=zeros(size(Matx),'like',Matx);
     end
     %dir: x> ; ^y
     %     ^y
