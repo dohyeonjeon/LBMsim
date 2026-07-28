@@ -26,20 +26,20 @@ timedel = 1;
 savestep = 100;
 
 Warmup_steps=50000;
-warmup_Diff=1.5;
+warmup_Diff=[0,1.1,1.2,0,1.1,0,1.1,1/1.5,1/1.5];
 
 %--------Material Properties
 rho_l=0.35955; rho_g=0.03015;
-T=0.080*0.25;
+T=0.080;
 
 H0=1;
 
-tau_nu=0.6; tau_D=0.7;
+tau_nu=[0,1.1,1.2,0,1.1,0,1.1,1/0.6,1/0.6]; tau_D=0.7;
 
 wall_rho=0.25;
 wall_rho_2=0.018;
 
-rho_i=wall_rho*1.05
+rho_i=wall_rho*1.05;
 %++++++ Initialization +++++++
 %------ Space Genesis --------
 verstep=Verlength/lendel;
@@ -146,8 +146,8 @@ axis equal tight;
 nexttile;
 hImg(4) = imagesc(gather(grhofld)); 
 colormap(gca, 'turbo'); colorbar;
-clim([0, 1.0]);
-title('Gas Density (grhofld)');
+clim([-0.05, 0.05]);
+title('Chem. Pot.');
 axis equal tight;
 
 % 공통 라벨 설정 (tiledlayout의 장점)
@@ -165,7 +165,7 @@ for i = 1:Warmup_steps
 
     %------Collision (Relaxation
     f=DistributionMRT(f,feq,warmup_Diff)+fdt;
-    g=DistTRT(g,geq,warmup_Diff);
+    g=DistributionMRT(g,geq,warmup_Diff);
 
     % streaming and BBwalls
     f=stream(f);
@@ -204,7 +204,7 @@ for i = 1:Warmup_steps
         set(hImg(1), 'CData', gather(vecnorm(u1+du1/2,2,3)));
         set(hImg(2), 'CData', gather(frhofld));
         set(hImg(3), 'CData', gather(vecnorm(du1,2,3)));
-        set(hImg(4), 'CData', gather(grhofld));
+        set(hImg(4), 'CData', gather(T.*((3-2.*frhofld)./(1-frhofld).^2+log(frhofld)+(1+frhofld+frhofld.^2-frhofld.^3)./(1-frhofld).^3)-2.*frhofld));
         set(hMaintitle, 'String', sprintf('%d step',i))
         drawnow limitrate;
     end
@@ -216,7 +216,7 @@ for i = 1:Time
 
     %------Collision (Relaxation
     f=DistributionMRT(f,feq,tau_nu)+fdt;
-    g=DistTRT(g,geq,tau_D);
+    g=DistributionMRT(g,geq,tau_D);
 
     % streaming and BBwalls
     f=stream(f);
@@ -255,7 +255,7 @@ for i = 1:Time
         set(hImg(1), 'CData', gather(vecnorm(u1+du1/2,2,3)));
         set(hImg(2), 'CData', gather(frhofld));
         set(hImg(3), 'CData', gather(vecnorm(du1,2,3)));
-        set(hImg(4), 'CData', gather(grhofld));
+        set(hImg(4), 'CData', gather(T.*((3-2.*frhofld)./(1-frhofld).^2+log(frhofld)+(1+frhofld+frhofld.^2-frhofld.^3)./(1-frhofld).^3)-2.*frhofld));
         set(hMaintitle, 'String', sprintf('%d step',i))
         drawnow limitrate;
     end

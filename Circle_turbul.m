@@ -31,7 +31,7 @@ rho_f=1;
 
 H0=1;
 
-tau_nu=0.501;
+tau_nu=[0,1,1,0,1,0,1,1/0.51,1/0.51];
 
 wall_rho=0.25;
 
@@ -161,7 +161,6 @@ for i = 1:Time
     frhofld(:,1)=1;
     frhofld(:,end)=1;
     u1(:,1,1)=0.05;
-    u1(:,1,2)=0;
     u1(:,end,:)=0;
 
     %------Equilibrium and force term calculation

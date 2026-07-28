@@ -15,7 +15,7 @@ persistent xdir ydir weight g
         g=-1;
     end
 
-    pstar=rhofield.*T.*(1+rhofield+rhofield.^2-rhofield.^3)./(1-rhofield).^3-rhofield.^2*0.25-rhofield*cs2;
+    pstar=rhofield.*T.*(1+rhofield+rhofield.^2-rhofield.^3)./(1-rhofield).^3-rhofield.^2-rhofield*cs2;
 
 
     psi=(max(2*pstar/g/cs2,0).^0.5);

@@ -1,4 +1,5 @@
-                                                                                                                                                                                                                                                                                                                                                                                                                                   function resr = DistributionMRT(disorig,diseq,tau)
+
+function resr = DistributionMRT(disorig,diseq,tau)
 %   MRT relaxation function
 %   3개 혹은 5개의 인수를 받습니다
 %   1~3개의 인수는 각각 원래 분포, 균형 분포, tau입니다
@@ -11,7 +12,7 @@
 arguments
     disorig (:,:,9) 
     diseq (:,:,9)
-    tau =1 ;
+    tau =[0,1,1,0,1,0,1,1,1] ;
 end
 
    
@@ -27,10 +28,10 @@ persistent M luM svec
             0, 1,-1, 1,-1, 0, 0, 0, 0;    % m7 = pxx (normal stress)
             0, 0, 0, 0, 0, 1,-1, 1,-1]);   % m8 = pxy (shear stress)
         luM=M\eye(9);
-        svec=gpuArray(diag([0, 1.1, 1.2, 0, 1.1, 0, 1.1, 1/tau, 1/tau]));
+        svec=gpuArray(diag(tau));
     end
 
-svec([71,81])=1/tau;
+svec=diag(tau);
 morig=M*(reshape(disorig,[],9).');
 mstar=morig-svec*(morig-M*reshape(diseq,[],9).');%+(eye(9)-svec/2)*(M*reshape(fdt,[],9).');
 resr=reshape((luM*mstar).',size(disorig));
