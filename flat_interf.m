@@ -17,24 +17,24 @@ clear functions;
 %========parameters (Physical)
 % note: 무차원으로 입력 요망
 %--------Lattice
-Verlength=300; 
-Horlength=40; 
+Verlength=500; 
+Horlength=100; 
 lendel=1; 
 
 Time=100; 
 timedel = 1; 
 savestep = 50;
 
-Warmup_steps=5000;
-warmup_Diff=[0,1.1,1.2,0,1.1,0,1.1,1/1.5,1/1.5];
+Warmup_steps=6000;
+warmup_Diff=[0,1.2,0.8,0,1.1,0,1.1,1/1.5,1/1.5];
 
 %--------Material Properties
-rho_l=0.280; rho_g=0.040;
-T=0.080;
+rho_l=0.200; rho_g=0.070;
+T=0.090;
 
 H0=1;
 
-tau_nu=[0,1.1,1.2,0,1.1,0,1.1,1/0.6,1/0.6]; tau_D=0.7;
+tau_nu=[0,1.2,0.8,0,1.1,0,1.1,1/1.5,1/1.5]; tau_D=0.7;
 
 wall_rho=0.25;
 wall_rho_2=0.018;
@@ -62,7 +62,6 @@ weight=reshape([4/9,1/9,1/9,1/9,1/9,1/36,1/36,1/36,1/36],1,1,[]);
 %      
 [X,Y]=meshgrid(1:horstep+2,1:verstep+2);
 
-
 %------ Boundary (Wall) setting (or other obstacles later)
 walls=gpuArray(uint8(zeros(verstep+2,horstep+2)));% 0==false==flow
 %Note: matrix "walls" intentionally designated as uint8, for further wall
@@ -71,17 +70,13 @@ walls([1,end],:)=0;
 
 %Initial rho & u distribution
 
-
-%
 %frhofld(logical(walls))=wall_rho;
 % frhofld(:,:)=0.1300+0.0012*rand([verstep+2,horstep+2]);
-frhofld(:,:)=(rho_g+(rho_l-rho_g)*(1-tanh((((X-20).^2+(Y-100).^2).^0.5-20)/4))/2);
-frhofld(:,:)=(frhofld+(rho_l-rho_g)*(1-tanh((((X-30).^2+(Y-70).^2).^0.5-20)/4))/2);
+frhofld(:,:)=(rho_g+(rho_l-rho_g)*(1-tanh((((X-50).^2+(Y-100).^2).^0.5-60)/4))/2);
+% frhofld(:,:)=(frhofld+(rho_l-rho_g)*(1-tanh((((X-30).^2+(Y-120).^2).^0.5-20)/4))/2);
 % frhofld(:,:)=frhofld+(wall_rho-rho_g).*(2-tanh((Y-1)/2.2)-tanh((402-Y)/2.2));
 u1(:)=CSaccel(frhofld,T);
 du1(:)=0;
-
-
 
 %-----Initial Dist. Func. Calculation
 
@@ -126,9 +121,9 @@ axis equal tight;
 
 %--- 4번 타일: Density Field (g)
 nexttile;
-hImg(4) = imagesc(gather(chpt(frhofld,du1))); 
+hImg(4) = imagesc(gather(chpt(frhofld,T))); 
 colormap(gca, 'turbo'); colorbar;
-clim([-0.05, 0.05]);
+clim([0.02, 0.06]);
 title('Chem. Pot.');
 axis equal tight;
 
@@ -167,11 +162,11 @@ for i = 1:Warmup_steps
     %------Imaging------
     if rem(i,savestep)==0
         % 지금 화학퍼텐셜은 시각화만 하고 있으니 여기서 계산
-        mu=chpt(frhofld,du1);
+        mu=chpt(frhofld,T);
         set(hImg(1), 'CData', gather(vecnorm(u1+du1/2,2,3)));
         set(hImg(2), 'CData', gather(frhofld));
         set(hImg(3), 'CData', gather(vecnorm(du1,2,3)));
-        set(hImg(4), 'CData', gather(T.*((3-2.*frhofld)./(1-frhofld).^2+log(frhofld)+(1+frhofld+frhofld.^2-frhofld.^3)./(1-frhofld).^3)-2.*frhofld));
+        set(hImg(4), 'CData', smoothdata2(gather(mu),"movmean",5)-smoothdata2(gather(stencil_del2(frhofld)),"movmean",5)*3);
         set(hMaintitle, 'String', sprintf('%d step',i))
         drawnow limitrate;
     end
@@ -205,16 +200,16 @@ for i = 1:Time
     %------Imaging------
     if rem(i,savestep)==0
         % 지금 화학퍼텐셜은 시각화만 하고 있으니 여기서 계산
-        mu=chpt(frhofld,du1);
+        mu=chpt(frhofld,T);
         set(hImg(1), 'CData', gather(vecnorm(u1+du1/2,2,3)));
         set(hImg(2), 'CData', gather(frhofld));
         set(hImg(3), 'CData', gather(vecnorm(du1,2,3)));
-        set(hImg(4), 'CData', gather(T.*((3-2.*frhofld)./(1-frhofld).^2+log(frhofld)+(1+frhofld+frhofld.^2-frhofld.^3)./(1-frhofld).^3)-2.*frhofld));
+        set(hImg(4), 'CData', smoothdata2(gather(mu),"movmean",5)-smoothdata2(gather(stencil_del2(frhofld)),"movmean",5)*3);
         set(hMaintitle, 'String', sprintf('%d step',i))
         drawnow limitrate;
     end
 end
 toc
-function dmu_y=chpt(frhofld,du)
-    dmu_y=gradient(frhofld)./frhofld/3-du(:,:,2);
+function mu=chpt(frhofld,T)
+    mu=T.*((3-2.*frhofld)./(1-frhofld).^2+log(frhofld)+(1+frhofld+frhofld.^2-frhofld.^3)./(1-frhofld).^3)-2.*frhofld;
 end

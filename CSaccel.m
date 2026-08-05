@@ -26,7 +26,6 @@ persistent xdir ydir weight g
     
     for i = 2:9
         nbr_p = circshift(psi, [-ydir(i), xdir(i)]);
-        %nbr_g = circshift(Gfield, [-ydir(i), xdir(i)]);
         Fx = Fx - g*psi.* weight(i) .* nbr_p .* xdir(i);
         Fy = Fy - g*psi.* weight(i) .* nbr_p .* ydir(i);
     end
