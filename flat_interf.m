@@ -2,10 +2,10 @@
 % % ===============
 % %----------------
 % % 볼츠만 실험기
-% % 작성일:26-07-14
+% % 작성일:26-07-29
 % % 작성자: 전도현
 % % 설명: 격자-볼츠만 방법론을 적용한 대류 및 확산 시뮬레이션
-% % 참조: 이 폴더의 목표는 안정성 조건의 탐구와 확보임
+% % 참조: 계면 자유에너지 팝업 확인
 % %----------------
 % % ===============
 
@@ -17,19 +17,19 @@ clear functions;
 %========parameters (Physical)
 % note: 무차원으로 입력 요망
 %--------Lattice
-Verlength=200; 
-Horlength=200; 
+Verlength=300; 
+Horlength=40; 
 lendel=1; 
 
 Time=100; 
 timedel = 1; 
-savestep = 100;
+savestep = 50;
 
-Warmup_steps=50000;
+Warmup_steps=5000;
 warmup_Diff=[0,1.1,1.2,0,1.1,0,1.1,1/1.5,1/1.5];
 
 %--------Material Properties
-rho_l=0.35955; rho_g=0.03015;
+rho_l=0.280; rho_g=0.040;
 T=0.080;
 
 H0=1;
@@ -50,10 +50,6 @@ fphifld=gpuArray(zeros(verstep+2,horstep+2));
 u1=gpuArray(zeros(verstep+2,horstep+2,2));
 du1=gpuArray(zeros(verstep+2,horstep+2,2));
 
-grhofld=gpuArray(zeros(verstep+2,horstep+2));
-u2=gpuArray(zeros(verstep+2,horstep+2,2));
-du2=gpuArray(zeros(verstep+2,horstep+2,2));
-
 xdir=reshape([0,1,0,-1,0,1,-1,-1,1],1,1,[]);
 ydir=reshape([0,0,1,0,-1,1,1,-1,-1],1,1,[]);
 weight=reshape([4/9,1/9,1/9,1/9,1/9,1/36,1/36,1/36,1/36],1,1,[]);
@@ -71,10 +67,6 @@ weight=reshape([4/9,1/9,1/9,1/9,1/9,1/36,1/36,1/36,1/36],1,1,[]);
 walls=gpuArray(uint8(zeros(verstep+2,horstep+2)));% 0==false==flow
 %Note: matrix "walls" intentionally designated as uint8, for further wall
 walls([1,end],:)=0;
-wall_mask=logical(((X-70).^2+(Y-90).^2).^0.5<20);
-wall_mask(Y>107)=1;
-walls(wall_mask)=1;
-
 %------ Inital/boundary condition designation
 
 %Initial rho & u distribution
@@ -83,17 +75,11 @@ walls(wall_mask)=1;
 %
 %frhofld(logical(walls))=wall_rho;
 % frhofld(:,:)=0.1300+0.0012*rand([verstep+2,horstep+2]);
-frhofld(:,:)=(rho_g+(rho_l-rho_g)*(1-tanh((((X-100).^2+(Y-100).^2).^0.5-10)/4))/2);
-frhofld(:,:)=(frhofld+(rho_l-rho_g)*(1-tanh((((X-70).^2+(Y-90).^2).^0.5-20)/4))/2);
+frhofld(:,:)=(rho_g+(rho_l-rho_g)*(1-tanh((((X-20).^2+(Y-100).^2).^0.5-20)/4))/2);
+frhofld(:,:)=(frhofld+(rho_l-rho_g)*(1-tanh((((X-30).^2+(Y-70).^2).^0.5-20)/4))/2);
 % frhofld(:,:)=frhofld+(wall_rho-rho_g).*(2-tanh((Y-1)/2.2)-tanh((402-Y)/2.2));
 u1(:)=CSaccel(frhofld,T);
 du1(:)=0;
-
-
-grhofld(:,:)=0.2;
-grhofld(logical(walls))=wall_rho_2;
-u2(:)=0;
-du2(:)=0;
 
 
 
@@ -102,11 +88,7 @@ du2(:)=0;
 feq=ustareq(frhofld,u1);
 fdt=ustareq(frhofld,u1+du1)-feq;
 
-geq=ustareq(grhofld,u1);
-gdt=ustareq(grhofld,u1+du1)-geq;
-
 f=feq;
-g=geq;
 
 
 %$$$$$$$$$$%%temporal savedata recall%%$$$$$$$$$$%
@@ -144,7 +126,7 @@ axis equal tight;
 
 %--- 4번 타일: Density Field (g)
 nexttile;
-hImg(4) = imagesc(gather(grhofld)); 
+hImg(4) = imagesc(gather(chpt(frhofld,du1))); 
 colormap(gca, 'turbo'); colorbar;
 clim([-0.05, 0.05]);
 title('Chem. Pot.');
@@ -165,42 +147,27 @@ for i = 1:Warmup_steps
 
     %------Collision (Relaxation
     f=DistributionMRT(f,feq,warmup_Diff)+fdt;
-    g=DistributionMRT(g,geq,warmup_Diff);
 
     % streaming and BBwalls
     f=stream(f);
-    g=stream(g);
-
     f=BBwalls(f,walls);
-    g=BBwalls(g,walls);
 
 
     %----Macroscopic Update
     [frhofld, u1]=rawdist(f);
-    % [fphifld, ~]=rawdist(phi);
     du1=CSaccel(frhofld,T);
     %u1(:)=u1+du1/2;
 
-    [grhofld, u2]=rawdist(g);
-    du2(:)=0;
-    %u2(:)=u2+du2/2;
-
     %---boundary application
     frhofld(logical(walls))=wall_rho;
-    grhofld(frhofld>rho_i)=H0;
-    grhofld([1,end],:)=0.2*H0;
-    grhofld(:,[1,end])=0.2*H0;
 
     %------Equilibrium and force term calculation
     feq=ustareq(frhofld,u1);
     fdt(:)=(ustareq(frhofld,u1+du1)-feq);
-    % phieq=ustareq(fphifld,u1);
-
-    geq=ustareq(grhofld,u1+du1/2);
-    gdt(:)=ustareq(grhofld,u1+du1)-geq;
-
     %------Imaging------
     if rem(i,savestep)==0
+        % 지금 화학퍼텐셜은 시각화만 하고 있으니 여기서 계산
+        mu=chpt(frhofld,du1);
         set(hImg(1), 'CData', gather(vecnorm(u1+du1/2,2,3)));
         set(hImg(2), 'CData', gather(frhofld));
         set(hImg(3), 'CData', gather(vecnorm(du1,2,3)));
@@ -209,7 +176,7 @@ for i = 1:Warmup_steps
         drawnow limitrate;
     end
 end
-
+toc
 
 %Main_loop
 
@@ -218,42 +185,27 @@ for i = 1:Time
 
     %------Collision (Relaxation
     f=DistributionMRT(f,feq,tau_nu)+fdt;
-    g=DistributionMRT(g,geq,tau_D);
 
     % streaming and BBwalls
     f=stream(f);
-    g=stream(g);
-
     f=BBwalls(f,walls);
-    g=BBwalls(g,walls);
-
 
     %----Macroscopic Update
     [frhofld, u1]=rawdist(f);
-    % [fphifld, ~]=rawdist(phi);
     du1=CSaccel(frhofld,T);
     %u1(:)=u1+du1/2;
 
-    [grhofld, u2]=rawdist(g);
-    du2(:)=0;
-    %u2(:)=u2+du2/2;
-
     %---boundary application
     frhofld(logical(walls))=wall_rho;
-    grhofld(frhofld>rho_i)=H0;
-    grhofld([1,end],:)=0.2*H0;
-    grhofld(:,[1,end])=0.2*H0;
 
     %------Equilibrium and force term calculation
     feq=ustareq(frhofld,u1);
     fdt(:)=(ustareq(frhofld,u1+du1)-feq);
-    % phieq=ustareq(fphifld,u1);
-
-    geq=ustareq(grhofld,u1+du1/2);
-    gdt(:)=ustareq(grhofld,u1+du1)-geq;
 
     %------Imaging------
     if rem(i,savestep)==0
+        % 지금 화학퍼텐셜은 시각화만 하고 있으니 여기서 계산
+        mu=chpt(frhofld,du1);
         set(hImg(1), 'CData', gather(vecnorm(u1+du1/2,2,3)));
         set(hImg(2), 'CData', gather(frhofld));
         set(hImg(3), 'CData', gather(vecnorm(du1,2,3)));
@@ -261,4 +213,8 @@ for i = 1:Time
         set(hMaintitle, 'String', sprintf('%d step',i))
         drawnow limitrate;
     end
+end
+toc
+function dmu_y=chpt(frhofld,du)
+    dmu_y=gradient(frhofld)./frhofld/3-du(:,:,2);
 end
